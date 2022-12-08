@@ -25,3 +25,7 @@ config.log
 .DS_Store
 .DS_Store?
 ._*
+
+# JetBrains IDEs #
+##################
+.idea/
