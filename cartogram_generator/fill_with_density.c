@@ -14,6 +14,7 @@ int **xyhalfshift2reg;
 /**************************** Function prototypes. ***************************/
 
 void rescale_map (BOOLEAN inv);
+void rescale_map_inv ();
 void set_inside_value_at_y (int region, POINT pk, POINT pn, int l,
           double poly_minx, int **inside);
 void set_inside_values_between_points (int region, POINT pk, POINT pn,
@@ -77,6 +78,40 @@ void rescale_map (BOOLEAN inv)
   }
   
   return;
+}
+
+/*****************************************************************************/
+/* Function to change coordinates from (0, 0, LX, LY) to                     */
+/* (minx, miny, maxx, maxy), the opposite of rescale_map().                  */
+void rescale_map_inv ()
+{
+    double latt_const, new_maxx, new_maxy, new_minx, new_miny;
+    int i, j;
+
+    new_maxx = 0.5 * ((1.0+PADDING)*map_maxx + (1.0-PADDING)*map_minx);
+    new_minx = 0.5 * ((1.0-PADDING)*map_maxx + (1.0+PADDING)*map_minx);
+    new_maxy = 0.5 * ((1.0+PADDING)*map_maxy + (1.0-PADDING)*map_miny);
+    new_miny = 0.5 * ((1.0-PADDING)*map_maxy + (1.0+PADDING)*map_miny);
+    if (map_maxx-map_minx > map_maxy-map_miny) {
+        lx = L;
+        latt_const = (new_maxx-new_minx) / L;
+        ly = 1 << ((int)ceil(log2((new_maxy-new_miny)/latt_const)));
+        new_miny = 0.5*(map_maxy+map_miny) - 0.5*ly*latt_const;
+    }
+    else {
+        ly = L;
+        latt_const = (new_maxy-new_miny) / L;
+        lx = 1 << ((int) ceil(log2((new_maxx-new_minx) / latt_const)));
+        new_minx = 0.5*(map_maxx+map_minx) - 0.5*lx*latt_const;
+    }
+
+    /* Rescale all cartogram coordinates. */
+    for (i=0; i<n_poly; i++)
+        for (j=0; j<n_polycorn[i]; j++) {
+            cartcorn[i][j].x = cartcorn[i][j].x * latt_const + new_minx;
+            cartcorn[i][j].y = cartcorn[i][j].y * latt_const + new_miny;
+        }
+
 }
 
 /*****************************************************************************/

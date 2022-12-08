@@ -249,7 +249,9 @@ int main (int argc, char* argv[])
       MAX_PERMITTED_AREA_ERROR) {            /* No need to compute anything. */
     if (eps)
       ps_figure("cartogram.eps", polycorn, proj, FALSE);
-    
+
+
+
     /* Coordinates in .gen/.json format and area errors. */
 
     if(strcmp(map_file_type, "gen") == 0){
@@ -328,13 +330,12 @@ int main (int argc, char* argv[])
 
   correction_factor = sqrt(init_tot_area / cart_tot_area);
   fprintf(stderr, "correction_factor = %f\n", correction_factor);
-  for (i=0; i<n_poly; i++)
-    for (j=0; j<n_polycorn[i]; j++) {
-      cartcorn[i][j].x =
-	correction_factor * (cartcorn[i][j].x - 0.5*lx) + 0.5*lx;
-      cartcorn[i][j].y =
-	correction_factor * (cartcorn[i][j].y - 0.5*ly) + 0.5*ly;
-    }
+  for (i=0; i<n_poly; i++) {
+      for (j = 0; j < n_polycorn[i]; j++) {
+          cartcorn[i][j].x = correction_factor * (cartcorn[i][j].x - 0.5 * lx) + 0.5 * lx;
+          cartcorn[i][j].y = correction_factor * (cartcorn[i][j].y - 0.5 * ly) + 0.5 * ly;
+      }
+  }
 
   /* Run max_area_err() once more so that we print correct absolute areas in */
   /* output_error().                                                      */
@@ -350,10 +351,12 @@ int main (int argc, char* argv[])
   /* Print additional output files: Coordinates in .gen/.json format, area errors, */
   /* the graticules from the inverse transform. */
 
+  rescale_map_inv();
+
   if(strcmp(map_file_type, "gen") == 0){
-    output_to_gen(use_std, polycorn);
+    output_to_gen(use_std, cartcorn);
   }else if(strcmp(map_file_type, "json") == 0){
-    output_to_geojson(use_std, polycorn, map_file_name);
+    output_to_geojson(use_std, cartcorn, map_file_name);
   }
   output_error();
 
