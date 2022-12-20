@@ -82,7 +82,7 @@ void set_inside_values_for_polygon (int region, int n_polycorn,
 double polygon_area (int ncrns, POINT *polygon);
 double polygon_perimeter (int ncrns, POINT *polygon);
 BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
-			    BOOLEAN inv, BOOLEAN eps);
+			    BOOLEAN inv);
 void fill_with_density2 (void);
 void read_map (char *map_file);
 void ps_figure (char *ps_name, POINT **corn, POINT *proj, BOOLEAN grat);
@@ -98,3 +98,4 @@ void output_error (void);
 void inv_project (void);
 void print_usage (char *program_name);
 void process_json (char *json_file_name, char *program_name);
+void rescale_map_inv();

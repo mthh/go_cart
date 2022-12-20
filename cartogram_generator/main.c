@@ -83,323 +83,165 @@ fftw_plan plan_fwd;
 int lx, ly;
 rgb_color* color;
 
-/**************************** Function prototype. ****************************/
 
-void print_usage (char *program_name);
-
-/**** Error message for unknown command-line arguments or missing values. ****/
-
-void print_usage (char *program_name)
+int doCartogram (char *map_file_name, char *area_file_name)
 {
-  fprintf(stderr, "USAGE:\n");
-  fprintf(stderr, "Process GeoJSON File: %s -p json_file_name\n", program_name);
-  fprintf(stderr, "Generate Cartogram:   %s [-dei] -g map_file_name -a area_file_name\n",
-	  program_name);
-  fprintf(stderr, "                      OR:\n");
-  fprintf(stderr, "                      %s [-dei] -g map_file_name -s\n", program_name);
-  fprintf(stderr, "-d: use Gastner-Newman (i.e. diffusion) method\n");
-  fprintf(stderr, "-e: generate cartogram figure in EPS format\n");
-  fprintf(stderr, "-i: calculate inverse transform\n");
-  exit(1);
-}
+    BOOLEAN inv, use_area_file, use_gen, use_std;
+    char *json_file_name = NULL, *map_file_type = "json";
+    double cart_tot_area, correction_factor, init_tot_area, mae;
+    int opt, i, integration, j;
 
-/*********************************** Main. ***********************************/
-int main (int argc, char* argv[])
-{
-  BOOLEAN diff, eps, inv, use_area_file, use_gen, use_json, use_std;
-  char *area_file_name = NULL, *json_file_name = NULL, *map_file_name = NULL,
-    *map_file_type = NULL, *program_name = NULL;
-  double cart_tot_area, correction_factor, init_tot_area, mae;
-  int opt, i, integration, j;
+    use_gen = TRUE;
+    use_area_file = TRUE;
+    inv = FALSE;
+    use_std = FALSE;
+    use_perimeter_threshold = TRUE;
 
-  use_gen = FALSE;
-  use_area_file = FALSE;
-  diff = FALSE;
-  inv = FALSE;
-  use_std = FALSE;
-  eps = FALSE;
-  use_json = FALSE;
-  use_perimeter_threshold = TRUE;
-  
-  /**************************** Parse the command. ***************************/
 
-  while ((opt = getopt(argc, argv, "g:a:disep:n")) != -1)
-    switch (opt) {
-      case 'g':
-        map_file_name = strdup(optarg);
-	use_gen = TRUE;
-        break;
-      case 'a':
-        area_file_name = strdup(optarg);
-	use_area_file = TRUE;
-        break;
-      case 'd':
-        diff = TRUE;
-        fprintf(stderr, "Using Gastner-Newman (i.e. diffusion) method\n");
-        break;
-      case 'i':
-        inv = TRUE;
-        fprintf(stderr, "Will print inverse transform\n");
-        break;
-      case 's':
-        use_std = TRUE;
-        break;
-      case 'e':
-        eps = TRUE;
-        break;
-      case 'p':
-        json_file_name = strdup(optarg);
-        use_json = TRUE;
-        program_name = argv[0];
-        break;
-      case 'n':
-        use_perimeter_threshold = FALSE;
-        break;
-      default:
-        print_usage(argv[0]);
+    /***************************** Read input data. ****************************/
+
+    /* Read the original polygon coordinates. If there is more than one        */
+    /* region, fill the lx-times-ly grid with density and print a map.         */
+    /* rho_ft[] will be filled with the Fourier transform of the initial       */
+    /* density.                                                                */
+
+    if (fill_with_density1(map_file_name, area_file_name, inv)) {
+        fprintf(stderr,
+                "WARNING: There is only one region. The output cartogram will\n");
+        fprintf(stderr,
+                "         simply be an affine transformation of the input map.\n");
+    }
+    if (max_area_err(area_err, cart_area, polycorn, &init_tot_area) <=
+            MAX_PERMITTED_AREA_ERROR) {            /* No need to compute anything. */
+
+        /* Coordinates in .gen/.json format and area errors. */
+
+        if(strcmp(map_file_type, "gen") == 0){
+            output_to_gen(use_std, polycorn);
+        }else if(strcmp(map_file_type, "json") == 0){
+            output_to_geojson(use_std, polycorn, map_file_name);
+        }
+        output_error();
+
+        return 0;
     }
 
-  if(use_json == TRUE){
-    process_json(json_file_name, program_name);
-  }
+    /*************** Allocate memory for the projected positions. **************/
 
-  /* We need a .gen/.json file and target areas. */
-  
-  if(map_file_name == NULL || (area_file_name == NULL && !use_std))
-    print_usage(argv[0]);
+    projsize = lx * ly * sizeof(POINT);
+    proj = (POINT*) malloc(projsize);
+    cartcorn = (POINT**) malloc(n_poly * sizeof(POINT*));
+    for (i=0; i<n_poly; i++)
+        cartcorn[i] = (POINT*) malloc(n_polycorn[i] * sizeof(POINT));
 
-  /* Areas must be from a file or an input stream, but not both. */
-  
-  if(area_file_name != NULL && use_std) {
-    fprintf(stderr, "ERROR: You cannot use both -a and -s.\n");
-    print_usage(argv[0]);
-  }
-    
-  /* The equations of motion are integrated on an lx-times-ly square grid.   */
-  /* The parameter L will become max(lx, ly). Optimal values for lx and ly   */
-  /* are computed in fill_with_density.c. According to the FFTW              */
-  /* documentation, "transforms whose sizes are powers of 2 are especially   */
-  /* fast". For reasons of efficiency, we only allow powers of 2.            */
-  
-  if ((L <= 0) || ((L & (~L + 1)) != L)) {
-    fprintf(stderr,"ERROR: L must be an integer power of 2.\n");
-    exit(1);
-  }
-  
-  /* If a region contains exactly zero population, it will be replaced by    */
-  /* MIN_POP_FAC times the smallest positive population in any region.       */
-  /* Obviously, MIN_POP_FAC should be <1. A value around 0.2 is sensible.    */
-  /* Regions of zero area cause mathematical problems and are almost never   */
-  /* aesthetically desirable.                                                */
-  /* This is ONLY applied when the -n flag is used.                          */
-  
-  if (MIN_POP_FAC >= 1.0 || MIN_POP_FAC <= 0.0) {
-    fprintf(stderr,"ERROR: MIN_POP_FAC must be < 1.0.\n");
-    exit(1);
-  }
-
-  /* Without the -n flag, the program checks whether the area for each region*/
-  /* is smaller than a particular threshold. If it is, the region's area will*/
-  /* be set to that threshold. The threshold is scaled to each region's      */
-  /* perimeter and is calculated by                                          */
-  /* MAX(region_perimeter[i]/total_perimeter * MIN_PERIMETER_FAC, 0.00025)   */
-
-  if (MIN_PERIMETER_FAC >= 1.0 || MIN_PERIMETER_FAC <= 0.0) {
-    fprintf(stderr,"ERROR: MIN_PERIMETER_FAC must be < 1.0.\n");
-    exit(1);
-  }
-  
-  /* We leave some space between the edges of the lx-times-ly grid and the   */
-  /* mapped regions so that the cartogram is unaffected by the particular    */
-  /* choice of boundary conditions. The parameter PADDING determines how     */
-  /* much space we leave. A value around 1.5 is sensible.                    */
-  
-  if (PADDING < 1.0) {
-    fprintf(stderr,"ERROR: PADDING must be >= 1.0.\n");
-    exit(1);
-  }
-
-  /* Check whether .gen or .json/.geojson */
-  size_t namelen = strlen(map_file_name), extlenjson = strlen(".json"), extlengeojson = strlen(".geojson"), extlengen = strlen(".gen");
-  if(namelen >= extlengen && !strcmp(map_file_name + namelen - extlengen, ".gen")){
-    map_file_type = "gen";
-  }else if(namelen >= extlenjson && !strcmp(map_file_name + namelen - extlenjson, ".json")){
-    map_file_type = "json";
-  }else if(namelen >= extlengeojson && !strcmp(map_file_name + namelen - extlengeojson, ".geojson")){
-    map_file_type = "json";
-  }else{
-    fprintf(stderr,"ERROR: Map file not in proper file format. Map file needs to be a .gen file, .json file or .geojson file.\n");
-    exit(1);
-  }
-  
-  /***************************** Read input data. ****************************/
-  
-  /* Read the original polygon coordinates. If there is more than one        */
-  /* region, fill the lx-times-ly grid with density and print a map.         */
-  /* rho_ft[] will be filled with the Fourier transform of the initial       */
-  /* density.                                                                */
-  
-  if (fill_with_density1(map_file_name, area_file_name, inv, eps)) {
-    fprintf(stderr,
-	    "WARNING: There is only one region. The output cartogram will\n");
-    fprintf(stderr,
-	    "         simply be an affine transformation of the input map.\n");
-  }
-  if (max_area_err(area_err, cart_area, polycorn, &init_tot_area) <=
-      MAX_PERMITTED_AREA_ERROR) {            /* No need to compute anything. */
-    if (eps)
-      ps_figure("cartogram.eps", polycorn, proj, FALSE);
-
-
-
-    /* Coordinates in .gen/.json format and area errors. */
-
-    if(strcmp(map_file_type, "gen") == 0){
-      output_to_gen(use_std, polycorn);
-    }else if(strcmp(map_file_type, "json") == 0){
-      output_to_geojson(use_std, polycorn, map_file_name);
+    /* proj[i*ly+j] will store the current position of the point that started  */
+    /* at (i+0.5, j+0.5).                                                      */
+    projinit = (POINT*) malloc(projsize);
+    for (i = 0; i < lx; i++) {
+        for (j = 0; j < ly; j++) {
+            projinit[i * ly + j].x = i + 0.5;
+            projinit[i * ly + j].y = j + 0.5;
+        }
     }
-    output_error();
-    
-    return 0;
-  }
-  
-  /*************** Allocate memory for the projected positions. **************/
-
-  projsize = lx * ly * sizeof(POINT);
-  proj = (POINT*) malloc(projsize);
-  cartcorn = (POINT**) malloc(n_poly * sizeof(POINT*));
-  for (i=0; i<n_poly; i++)
-    cartcorn[i] = (POINT*) malloc(n_polycorn[i] * sizeof(POINT));
-  
-  /* proj[i*ly+j] will store the current position of the point that started  */
-  /* at (i+0.5, j+0.5).                                                      */
-  projinit = (POINT*) malloc(projsize);
-  for (i = 0; i < lx; i++) {
-    for (j = 0; j < ly; j++) {
-      projinit[i * ly + j].x = i + 0.5;
-      projinit[i * ly + j].y = j + 0.5;
-    }
-  }
-  memcpy(proj, projinit, projsize);
-  
-  /************** First integration of the equations of motion. **************/
-  
-  fprintf(stderr, "Starting integration 1\n");
-  if (!diff)
-    ffb_integrate();
-  else
-    diff_integrate();
-  project(FALSE);  /* FALSE because we do not need to project the graticule. */
-  mae = max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
-  fprintf(stderr, "max. abs. area error: %f\n", mae);
-  
-  /********* Additional integrations to come closer to target areas. *********/
-  
-  proj2 = (POINT*) malloc(projsize);
-  integration = 1;  
-  while (mae > MAX_PERMITTED_AREA_ERROR) {
-    fill_with_density2();
-    
-    /* Copy the current graticule before resetting. We will construct the    */
-    /* final graticule by interpolating proj2 on the basis of proj.          */
-
-    projtmp = proj2;
-    proj2 = proj;
-    proj = projtmp;
     memcpy(proj, projinit, projsize);
-    integration++;
-    fprintf(stderr, "Starting integration %d\n", integration);
-    if (!diff)
-      ffb_integrate();
-    else
-      diff_integrate();
-    project(TRUE);     /* TRUE because we need to project the graticule too. */
 
-    /* Overwrite proj with proj2. */
+    /************** First integration of the equations of motion. **************/
 
-    projtmp = proj;
-    proj = proj2;
-    proj2 = projtmp;
+    fprintf(stderr, "Starting integration 1\n");
+    ffb_integrate();
+    project(FALSE);  /* FALSE because we do not need to project the graticule. */
     mae = max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
     fprintf(stderr, "max. abs. area error: %f\n", mae);
-  }
 
-  /* Rescale all areas to perfectly match the total area before the          */
-  /* integrations started.                                                   */
+    /********* Additional integrations to come closer to target areas. *********/
 
-  correction_factor = sqrt(init_tot_area / cart_tot_area);
-  fprintf(stderr, "correction_factor = %f\n", correction_factor);
-  for (i=0; i<n_poly; i++) {
-      for (j = 0; j < n_polycorn[i]; j++) {
-          cartcorn[i][j].x = correction_factor * (cartcorn[i][j].x - 0.5 * lx) + 0.5 * lx;
-          cartcorn[i][j].y = correction_factor * (cartcorn[i][j].y - 0.5 * ly) + 0.5 * ly;
-      }
-  }
+    proj2 = (POINT*) malloc(projsize);
+    integration = 1;
+    while (mae > MAX_PERMITTED_AREA_ERROR) {
+        fill_with_density2();
 
-  /* Run max_area_err() once more so that we print correct absolute areas in */
-  /* output_error().                                                      */
-  
-  max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
-    
-  /* Print the cartogram in eps-format. Set the final argument to TRUE if    */
-  /* you want to add the graticule.                                          */
-  
-  if (eps)
-    ps_figure("cartogram.eps", cartcorn, proj, FALSE);
+        /* Copy the current graticule before resetting. We will construct the    */
+        /* final graticule by interpolating proj2 on the basis of proj.          */
 
-  /* Print additional output files: Coordinates in .gen/.json format, area errors, */
-  /* the graticules from the inverse transform. */
+        projtmp = proj2;
+        proj2 = proj;
+        proj = projtmp;
+        memcpy(proj, projinit, projsize);
+        integration++;
+        fprintf(stderr, "Starting integration %d\n", integration);
+        ffb_integrate();
+        project(TRUE);     /* TRUE because we need to project the graticule too. */
 
-  rescale_map_inv();
+        /* Overwrite proj with proj2. */
 
-  if(strcmp(map_file_type, "gen") == 0){
-    output_to_gen(use_std, cartcorn);
-  }else if(strcmp(map_file_type, "json") == 0){
-    output_to_geojson(use_std, cartcorn, map_file_name);
-  }
-  output_error();
+        projtmp = proj;
+        proj = proj2;
+        proj2 = projtmp;
+        mae = max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
+        fprintf(stderr, "max. abs. area error: %f\n", mae);
+    }
 
-  if (inv)
-    inv_project();
+    /* Rescale all areas to perfectly match the total area before the          */
+    /* integrations started.                                                   */
 
-  /******************************* Free memory. ******************************/
-  
-  fftw_destroy_plan(plan_fwd);
-  fftw_free(rho_ft);
-  fftw_free(rho_init);
-  for (i=0; i<n_poly; i++)
-    free(polycorn[i]);
-  free(polycorn);
-  for (i=0; i<n_poly; i++)
-    free(cartcorn[i]);
-  free(cartcorn);
-  free(n_polycorn);
-  free(polygon_id);
-  free(region_id);
-  free(region_id_inv);
-  for (i=0; i<n_reg; i++)
-    free(polyinreg[i]);
-  free(polyinreg);
-  free(n_polyinreg);
-  free(proj);
-  free(proj2);
-  free(target_area);
-  free(area_err);
-  free(cart_area);
-  if (use_gen) {
-    free(map_file_name);
-  }
-  if (use_area_file) {
-    free(area_file_name);
-  }
-  if (inv) {
+    correction_factor = sqrt(init_tot_area / cart_tot_area);
+    fprintf(stderr, "correction_factor = %f\n", correction_factor);
+    for (i=0; i<n_poly; i++) {
+        for (j = 0; j < n_polycorn[i]; j++) {
+            cartcorn[i][j].x = correction_factor * (cartcorn[i][j].x - 0.5 * lx) + 0.5 * lx;
+            cartcorn[i][j].y = correction_factor * (cartcorn[i][j].y - 0.5 * ly) + 0.5 * ly;
+        }
+    }
+
+    /* Run max_area_err() once more so that we print correct absolute areas in */
+    /* output_error().                                                      */
+
+    max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
+
+    /* Print the cartogram in eps-format. Set the final argument to TRUE if    */
+    /* you want to add the graticule.                                          */
+
+    /* Print additional output files: Coordinates in .gen/.json format, area errors, */
+    /* the graticules from the inverse transform. */
+
+    rescale_map_inv();
+
+    if(strcmp(map_file_type, "gen") == 0){
+        output_to_gen(use_std, cartcorn);
+    }else if(strcmp(map_file_type, "json") == 0){
+        output_to_geojson(use_std, cartcorn, map_file_name);
+    }
+    output_error();
+
+    /******************************* Free memory. ******************************/
+
+    fftw_destroy_plan(plan_fwd);
+    fftw_free(rho_ft);
+    fftw_free(rho_init);
     for (i=0; i<n_poly; i++)
-      free(origcorn[i]);
-    free(origcorn);
-  }
-  if (use_json) {
-    free(json_file_name);
-  }
-  return 0;
+        free(polycorn[i]);
+    free(polycorn);
+    for (i=0; i<n_poly; i++)
+        free(cartcorn[i]);
+    free(cartcorn);
+    free(n_polycorn);
+    free(polygon_id);
+    free(region_id);
+    free(region_id_inv);
+    for (i=0; i<n_reg; i++)
+        free(polyinreg[i]);
+    free(polyinreg);
+    free(n_polyinreg);
+    free(proj);
+    free(proj2);
+    free(target_area);
+    free(area_err);
+    free(cart_area);
+    if (use_gen) {
+        free(map_file_name);
+    }
+    if (use_area_file) {
+        free(area_file_name);
+    }
+    return 0;
 }

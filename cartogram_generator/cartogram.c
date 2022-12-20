@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <cjson/cJSON.h>
+#include "cJSON.h"
 #include "cartogram.h"
 
 /**************************** Function prototypes. ***************************/

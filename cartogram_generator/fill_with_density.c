@@ -273,7 +273,7 @@ void gaussian_blur (double tot_init_area, double avg_dens)
 /*               input map.                                                  */
 
 BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
-          BOOLEAN inv, BOOLEAN eps)
+          BOOLEAN inv)
 {
   char line[MAX_STRING_LENGTH];
   double area, avg_dens, *dens, *init_area, tot_init_area,
@@ -299,9 +299,7 @@ BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
 
   /* Print a map of the input coordinates in eps-format. The last argument   */
   /* is FALSE because we do not need to show the graticule.                  */
-  
-  if (eps)
-    ps_figure("map.eps", polycorn, proj, FALSE);
+
   if (n_reg == 1) {
 
     /* Placeholder for target area so that max_area_error() produces a       */
@@ -369,10 +367,6 @@ BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
       fprintf(stderr, "ERROR: No target area for region %d.\n", region_id[i]);
       exit(1);
     }
-  }
-
-  if (eps){
-    ps_figure("map.eps", polycorn, proj, FALSE);
   }
 
   /****** Replace target areas equal to zero by a small positive value. ******/
