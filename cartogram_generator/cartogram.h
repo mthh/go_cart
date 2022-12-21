@@ -92,7 +92,6 @@ void diff_integrate (void);
 void project (BOOLEAN proj_graticule);
 double max_area_err (double *area_err, double *cart_area, POINT **corn,
 		     double *sum_cart_area);
-void output_to_gen (BOOLEAN usestd, POINT **corn);
 void output_to_geojson (BOOLEAN usestd, POINT **corn, char *map_file_name);
 void output_error (void);
 void inv_project (void);

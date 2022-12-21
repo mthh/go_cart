@@ -15,9 +15,6 @@
 /**************************** Function prototypes. ***************************/
 
 void read_geojson (FILE *in_file);
-void count_poly (FILE *in_file);
-void count_corn (FILE *in_file);
-void read_corn (FILE *in_file);
 void make_region (void);
 void remove_tiny_polygons (void);
 
@@ -196,120 +193,6 @@ void read_geojson (FILE *in_file)
   }
   cJSON_Delete(root);
   return;
-}
-
-/*****************************************************************************/
-/**** Function to count number of polygons (for gen file only)            ****/
-
-void count_poly (FILE *in_file)
-{
-  char line[MAX_STRING_LENGTH];
-  
-  n_poly = 0;
-  while (fgets(line, MAX_STRING_LENGTH, in_file) != NULL)
-    if (line[0] == 'E') n_poly++;
-  n_poly--;               /* The .gen file ends with two consecutive "END"s. */
-  
-  return;
-}
-
-/*****************************************************************************/
-/**** Function to count polygon corners. Also determines minimum/maximum  ****/
-/**** x-/y-coordinate. (for gen file only)                                ****/
-
-void count_corn (FILE *in_file)
-{
-  char line[MAX_STRING_LENGTH];
-  double x, y;
-  int polyctr = 0;
-  
-  n_polycorn = (int*) calloc(n_poly, sizeof(int));
-  polycorn = (POINT**) malloc(n_poly * sizeof(POINT*));
-  if (fgets(line, MAX_STRING_LENGTH, in_file) == NULL) { /* Skip first line. */
-    fprintf(stderr, "ERROR: in_file empty.\n");
-    exit(1);
-  }
-  if (fgets(line, MAX_STRING_LENGTH, in_file) != NULL) {
-    sscanf(line, "%lf %lf", &map_minx, &map_miny);
-    map_maxx = map_minx;
-    map_maxy = map_miny;
-    n_polycorn[0] = 1;
-  }
-  else {
-    fprintf(stderr, "ERROR: in_file has only one line?\n");
-    exit(1);
-  }
-  while (fgets(line, MAX_STRING_LENGTH, in_file) != NULL) {
-    if (line[0] != 'E') {
-      sscanf(line, "%lf %lf", &x, &y);
-      map_minx = MIN(map_minx, x);
-      map_maxx = MAX(map_maxx, x);
-      map_miny = MIN(map_miny, y);
-      map_maxy = MAX(map_maxy, y);
-      n_polycorn[polyctr]++;
-    }
-    else {
-      if (fgets(line, MAX_STRING_LENGTH, in_file) == NULL) {
-        fprintf(stderr, "ERROR: in_file not in proper format.\n");
-        exit(1);
-      }
-      polycorn[polyctr] = (POINT*) malloc(n_polycorn[polyctr] * sizeof(POINT));
-      polyctr++;
-    }
-  }
-  
-  return;
-}
-
-/*****************************************************************************/
-/**** Function to read polygon corners. The first and last vertex of each ****/
-/**** polygon must be identical.   (for gen file only)                    ****/
-
-void read_corn (FILE *in_file)
-{
-  char line[MAX_STRING_LENGTH];
-  int i, id, polyctr=0;
-  
-  polygon_id = (int*) malloc(n_poly * sizeof(int));
-  if (fgets(line, MAX_STRING_LENGTH, in_file) == NULL) { /* Skip first line. */
-    fprintf(stderr, "ERROR: in_file empty.\n");
-    exit(1);
-  }
-  sscanf(line, "%i", &id);
-  polygon_id[polyctr] = id;
-  i = 0;
-  while (fgets(line, MAX_STRING_LENGTH, in_file) != NULL) {
-    if (line[0] != 'E') {
-      sscanf(line, "%lf %lf",
-       &polycorn[polyctr][i].x, &polycorn[polyctr][i].y);
-      i++;
-    }
-    else {
-      /* Are first and last corner identical? */
-      if (polycorn[polyctr][0].x !=
-    polycorn[polyctr][n_polycorn[polyctr]-1].x ||
-    polycorn[polyctr][0].y !=
-    polycorn[polyctr][n_polycorn[polyctr]-1].y) {
-        fprintf(stderr, "WARNING: %i-th polygon does not close upon itself.\n",
-    polyctr+1);
-        fprintf(stderr, "Identifier %i, first point (%f, %f).\n",
-    polygon_id[polyctr], polycorn[polyctr][0].x,
-    polycorn[polyctr][0].y);
-        fprintf(stderr, "%i points.\n", n_polycorn[polyctr]);
-      }
-      if (fgets(line, MAX_STRING_LENGTH, in_file) == NULL) {
-       fprintf(stderr, "ERROR: in_file not in proper format.\n");
-       exit(1);
-     }
-     sscanf(line, "%i", &id);
-     i = 0;
-     polyctr++;
-     if (polyctr < n_poly)
-       polygon_id[polyctr] = id;
-   }
- }
-
- return;
 }
 
 /*****************************************************************************/
@@ -578,23 +461,15 @@ void read_map (char *map_file_name)
     exit(1);
   }
   size_t namelen = strlen(map_file_name), extlenjson = strlen(".json"), extlengeojson = strlen(".geojson"), extlengen = strlen(".gen");
-  if(namelen >= extlengen && !strcmp(map_file_name + namelen - extlengen, ".gen")){
-    count_poly(map_file);
-    fclose(map_file);
-    map_file = fopen(map_file_name,"r");
-    count_corn(map_file);
-    fclose(map_file);
-    map_file = fopen(map_file_name,"r");
-    read_corn(map_file);
-    fclose(map_file);
-  }else if(namelen >= extlenjson && !strcmp(map_file_name + namelen - extlenjson, ".json")){
+
+  if(namelen >= extlenjson && !strcmp(map_file_name + namelen - extlenjson, ".json")){
     read_geojson(map_file);
     fclose(map_file);
   }else if(namelen >= extlengeojson && !strcmp(map_file_name + namelen - extlengeojson, ".geojson")){
     read_geojson(map_file);
     fclose(map_file);
   }else{
-    fprintf(stderr,"ERROR: Map file not in proper file format. Map file needs to be a .gen file, .json file or .geojson file.\n");
+    fprintf(stderr,"ERROR: Map file not in proper file format. Map file needs to be a .json file or .geojson file.\n");
     exit(1);
   }
   remove_tiny_polygons();

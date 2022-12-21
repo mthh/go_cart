@@ -44,13 +44,8 @@
 /* ...                                                                       */
 
 /* Output:                                                                   */
-/* (1) Unless overwritten by the -s flag, the output coordinates are written */
-/*     to cartogram.gen in ArcInfo "generate" format. If the -s flag is      */
-/*     the output is redirected to stdout.                                   */
-/* (2) If the -e flag is used, two postscript images are produced.           */
-/*     - A representation of the original input is prepared as map.eps.      */
-/*     - an image of the cartogram is printed to cartogram.eps.              */
-/* (3) The relative area errors are printed to area_error.dat.               */
+/* (1) The result is printed in cartogram.json                               */
+/* (2) The relative area errors are printed to area_error.dat.               */
 
 /******************************** Inclusions. ********************************/
 
@@ -114,13 +109,8 @@ int doCartogram (char *map_file_name, char *area_file_name)
     if (max_area_err(area_err, cart_area, polycorn, &init_tot_area) <=
             MAX_PERMITTED_AREA_ERROR) {            /* No need to compute anything. */
 
-        /* Coordinates in .gen/.json format and area errors. */
-
-        if(strcmp(map_file_type, "gen") == 0){
-            output_to_gen(use_std, polycorn);
-        }else if(strcmp(map_file_type, "json") == 0){
-            output_to_geojson(use_std, polycorn, map_file_name);
-        }
+        /* Coordinates in .json format and area errors. */
+        output_to_geojson(use_std, polycorn, map_file_name);
         output_error();
 
         return 0;
@@ -201,16 +191,12 @@ int doCartogram (char *map_file_name, char *area_file_name)
     /* Print the cartogram in eps-format. Set the final argument to TRUE if    */
     /* you want to add the graticule.                                          */
 
-    /* Print additional output files: Coordinates in .gen/.json format, area errors, */
+    /* Print additional output files: Coordinates in .json format, area errors, */
     /* the graticules from the inverse transform. */
 
     rescale_map_inv();
 
-    if(strcmp(map_file_type, "gen") == 0){
-        output_to_gen(use_std, cartcorn);
-    }else if(strcmp(map_file_type, "json") == 0){
-        output_to_geojson(use_std, cartcorn, map_file_name);
-    }
+    output_to_geojson(use_std, cartcorn, map_file_name);
     output_error();
 
     /******************************* Free memory. ******************************/

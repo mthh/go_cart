@@ -99,29 +99,6 @@ double max_area_err (double *area_err, double *cart_area, POINT **corn,
   return max;
 }
 
-/*****************************************************************************/
-/** Function to write cartogram polygons and relative area errors to files. **/
-
-void output_to_gen (BOOLEAN usestd, POINT **corn)
-{
-  FILE *gen_file = stdout;
-  int i, j;
-
-  /***************** Output of coordinates to cartogram.gen. *****************/
-
-  if (!usestd)
-    gen_file = fopen("cartogram.gen", "w");
-  for (i=0; i<n_poly; i++) {
-    fprintf(gen_file, "%d\n", polygon_id[i]);
-    for (j=0; j<n_polycorn[i]; j++)
-      fprintf(gen_file, "%f %f\n", corn[i][j].x, corn[i][j].y);
-    fprintf(gen_file, "END\n");
-  }
-  fprintf(gen_file, "END\n");  
-  fflush(gen_file);
-  if (!usestd)
-    fclose(gen_file);
-}
 
 void output_to_geojson (BOOLEAN usestd, POINT **corn, char *map_file_name)
 {
@@ -469,7 +446,7 @@ void inv_project (void)
   double *xdisp, *ydisp;
   int i, j, k, **xyhalfshift2tri;
   POINT *invproj, *invproj2, **projgrid, **tri;
-  
+
   /**************************** Memory allocation. ***************************/
 
   xdisp = (double*) malloc(lx * ly * sizeof(double));
@@ -485,28 +462,28 @@ void inv_project (void)
   xyhalfshift2tri = (int**) malloc(lx * sizeof(int*));
   for (i=0; i<lx; i++)
     xyhalfshift2tri[i] = (int*) malloc(ly * sizeof(int));
-  
+
   /* The displacement vector (xdisp[i*ly+j], ydisp[i*ly+j]) is the point     */
   /* that was initially at (i+0.5, j+0.5). We work with (xdisp, ydisp)       */
   /* instead of (proj.x, proj.y) so that we can use the function interpol()  */
   /* defined in integrate.c.                                                 */
-  
+
   for (i=0; i<lx; i++)
     for (j=0; j<ly; j++) {
       xdisp[i*ly + j] = proj[i*ly + j].x - i - 0.5;
       ydisp[i*ly + j] = proj[i*ly + j].y - j - 0.5;
     }
-  
+
   /* projgrid[i][j] is the projected position of (i, j) without half-shift.  */
-  
+
   for (i=0; i<=lx; i++)
-    for (j=0; j<=ly; j++) {      
-      projgrid[i][j].x = interpol(i, j, xdisp, 'x') + i;      
+    for (j=0; j<=ly; j++) {
+      projgrid[i][j].x = interpol(i, j, xdisp, 'x') + i;
       projgrid[i][j].y = interpol(i, j, ydisp, 'y') + j;
     }
-  
+
   /************ Project the triangles shown in the lattice above. ************/
-  
+
   for (i=0; i<lx; i++)
     for (j=0; j<ly; j++) {
       tri[4*(i*ly + j)][0].x =                      /* Lower left of square. */
@@ -536,7 +513,7 @@ void inv_project (void)
     }
 
   /***** xyhalfshift2tri[i][j]=k means that (i+0.5, j+0.5) is in tri[k]. *****/
-  
+
   for (i=0; i<lx; i++)
     for (j=0; j<ly; j++)
       xyhalfshift2tri[i][j] = -1;
@@ -544,7 +521,7 @@ void inv_project (void)
     set_inside_values_for_polygon(i, 3, tri[i], xyhalfshift2tri);
 
   /**** Inverse projection for a point at (i+0.5, j+0.5) on the cartogram. ***/
-  
+
   for (i=0; i<lx; i++)
     for (j=0; j<ly; j++) {
       k = xyhalfshift2tri[i][j];
@@ -567,7 +544,7 @@ void inv_project (void)
   /*     invproj[(i-1)*ly + j].y, invproj[(i+1)*ly + j].y) + 1,              */
   /* we replace invproj[i*ly + j] by the centroid of the four neighbouring   */
   /* preimages.                                                              */
-  
+
   for (j=0; j<ly-1; j++) {
     invproj2[j].x = invproj[j].x;
     invproj2[j].y = invproj[j].y;
@@ -578,14 +555,14 @@ void inv_project (void)
   }
   for (j=1; j<ly; j++) {
     invproj2[(lx-1)*ly + j].x = invproj[(lx-1)*ly + j].x;
-    invproj2[(lx-1)*ly + j].y = invproj[(lx-1)*ly + j].y;    
+    invproj2[(lx-1)*ly + j].y = invproj[(lx-1)*ly + j].y;
   }
   for (i=1; i<lx; i++) {
     invproj2[i*ly].x = invproj[i*ly].x;
     invproj2[i*ly].y = invproj[i*ly].y;
-  }  
+  }
   for (i=1; i<lx-1; i++)
-    for (j=1; j<ly-1; j++) {      
+    for (j=1; j<ly-1; j++) {
       if (invproj[i*ly + j].x < min4(invproj[i*ly + j - 1].x,
 				     invproj[i*ly + j + 1].x,
 				     invproj[(i-1)*ly + j].x,
@@ -614,13 +591,13 @@ void inv_project (void)
 	invproj2[i*ly + j].y = invproj[i*ly + j].y;
       }
     }
-  
+
   /****** Represent the inverse projection by an image of the graticule. *****/
-  
+
   ps_figure("invproj.eps", origcorn, invproj2, TRUE);
-  
+
   /******************************* Free memory. ******************************/
-  
+
   free(xdisp);
   free(ydisp);
   free(invproj);
