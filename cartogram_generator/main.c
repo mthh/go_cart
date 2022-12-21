@@ -237,11 +237,6 @@ int doCartogram (char *map_file_name, char *area_file_name)
     free(target_area);
     free(area_err);
     free(cart_area);
-    if (use_gen) {
-        free(map_file_name);
-    }
-    if (use_area_file) {
-        free(area_file_name);
-    }
+    free(color);
     return 0;
 }
