@@ -78,12 +78,16 @@ fftw_plan plan_fwd;
 int lx, ly;
 rgb_color* color;
 
+BOOLEAN almosteq(double a, double b)
+{
+    return fabs(a - b) < 0.000001;
+}
 
 int doCartogram (char *map_file_name, char *area_file_name)
 {
     BOOLEAN inv, use_area_file, use_gen, use_std;
     char *json_file_name = NULL, *map_file_type = "json";
-    double cart_tot_area, correction_factor, init_tot_area, mae;
+    double cart_tot_area, correction_factor, init_tot_area, mae, last_mae, last_last_mae;
     int opt, i, integration, j;
 
     use_gen = TRUE;
@@ -147,6 +151,8 @@ int doCartogram (char *map_file_name, char *area_file_name)
 
     proj2 = (POINT*) malloc(projsize);
     integration = 1;
+    last_mae = 1000.0;
+    last_last_mae = 2000.0;
     while (mae > MAX_PERMITTED_AREA_ERROR) {
         fill_with_density2();
 
@@ -167,8 +173,26 @@ int doCartogram (char *map_file_name, char *area_file_name)
         projtmp = proj;
         proj = proj2;
         proj2 = projtmp;
+
+        last_last_mae = last_mae;
+        last_mae = mae;
         mae = max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
+
         fprintf(stderr, "max. abs. area error: %f\n", mae);
+
+        /* This is a new stop condition which wasn't in Gastner, Seguy and More code :
+         * if we have already done MAX_INTEGRATIONS_BEFORE_RELAXING_STOP_CONDITION integrations
+         * we will start comparing the mae with the mae obtained in the two last integrations,
+         * if these three are almost equal (ie if fabs(a - b) < 0.000001 and fabs(b - c) < 0.000001)
+         * we stop the integration step and return the current cartogram.
+         *
+         * We do this because otherwise we found that on some datasets the mae stagnates
+         * above MAX_PERMITTED_AREA_ERROR (e.g. at 1), making this loop run again and again.
+         */
+        if (integration > MAX_INTEGRATIONS_BEFORE_RELAXING_STOP_CONDITION && almosteq(last_last_mae, last_mae) && almosteq(last_mae, mae)) {
+            fprintf(stderr, "Stopping because the max. abs. area error stagnates over the last 3 iterations\n");
+            break;
+        }
     }
 
     /* Rescale all areas to perfectly match the total area before the          */
@@ -187,9 +211,6 @@ int doCartogram (char *map_file_name, char *area_file_name)
     /* output_error().                                                      */
 
     max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
-
-    /* Print the cartogram in eps-format. Set the final argument to TRUE if    */
-    /* you want to add the graticule.                                          */
 
     /* Print additional output files: Coordinates in .json format, area errors, */
     /* the graticules from the inverse transform. */

@@ -10,6 +10,10 @@
 
 #define MAX_PERMITTED_AREA_ERROR (0.01)
 #define L (512)            /* Maximum dimension of the FFT lattice is L x L. */
+/* The number of integrations from which we look not only if the mae is      */
+/* below MAX_PERMITTED_AREA_ERROR but also if this mae does not stagnate     */
+/* above MAX_PERMITTED_AREA_ERROR without changing over the integrations.    */
+#define MAX_INTEGRATIONS_BEFORE_RELAXING_STOP_CONDITION (8)
 
 /* The program checks whether the area for each region is smaller than a     */
 /* particular threshold. If it is, the region's area will be set to that     */
