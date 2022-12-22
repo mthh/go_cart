@@ -4,6 +4,11 @@ cartogram
 cartogram_generator/cartogram
 *.o
 
+# Dependencies #
+################
+cartogram_generator/cJSON.c
+cartogram_generator/cJSON.h
+
 # Generated Files #
 ###################
 cartogram.gen
