@@ -141,11 +141,11 @@ int doCartogram (char *map_file_name, char *area_file_name)
 
     /************** First integration of the equations of motion. **************/
 
-    fprintf(stderr, "Starting integration 1\n");
+    DEBUG_PRINTF("Starting integration 1\n");
     ffb_integrate();
     project(FALSE);  /* FALSE because we do not need to project the graticule. */
     mae = max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
-    fprintf(stderr, "max. abs. area error: %f\n", mae);
+    DEBUG_PRINTF("max. abs. area error: %f\n", mae);
 
     /********* Additional integrations to come closer to target areas. *********/
 
@@ -164,7 +164,7 @@ int doCartogram (char *map_file_name, char *area_file_name)
         proj = projtmp;
         memcpy(proj, projinit, projsize);
         integration++;
-        fprintf(stderr, "Starting integration %d\n", integration);
+        DEBUG_PRINTF("Starting integration %d\n", integration);
         ffb_integrate();
         project(TRUE);     /* TRUE because we need to project the graticule too. */
 
@@ -178,7 +178,7 @@ int doCartogram (char *map_file_name, char *area_file_name)
         last_mae = mae;
         mae = max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
 
-        fprintf(stderr, "max. abs. area error: %f\n", mae);
+        DEBUG_PRINTF("max. abs. area error: %f\n", mae);
 
         /* This is a new stop condition which wasn't in Gastner, Seguy and More code :
          * if we have already done MAX_INTEGRATIONS_BEFORE_RELAXING_STOP_CONDITION integrations
@@ -190,7 +190,7 @@ int doCartogram (char *map_file_name, char *area_file_name)
          * above MAX_PERMITTED_AREA_ERROR (e.g. at 1), making this loop run again and again.
          */
         if (integration > MAX_INTEGRATIONS_BEFORE_RELAXING_STOP_CONDITION && almosteq(last_last_mae, last_mae) && almosteq(last_mae, mae)) {
-            fprintf(stderr, "Stopping because the max. abs. area error stagnates over the last 3 iterations\n");
+            DEBUG_PRINTF("Stopping because the max. abs. area error stagnates over the last 3 iterations\n");
             break;
         }
     }
@@ -199,7 +199,7 @@ int doCartogram (char *map_file_name, char *area_file_name)
     /* integrations started.                                                   */
 
     correction_factor = sqrt(init_tot_area / cart_tot_area);
-    fprintf(stderr, "correction_factor = %f\n", correction_factor);
+    DEBUG_PRINTF("correction_factor = %f\n", correction_factor);
     for (i=0; i<n_poly; i++) {
         for (j = 0; j < n_polycorn[i]; j++) {
             cartcorn[i][j].x = correction_factor * (cartcorn[i][j].x - 0.5 * lx) + 0.5 * lx;

@@ -225,8 +225,7 @@ void diff_integrate (void)
 		       (mid[k].y-proj[k].y)*(mid[k].y-proj[k].y),
 		       max_change);
     if (iter % 10 == 0)
-      fprintf(stderr, "iter = %d, t = %e, delta_t = %e, max_change = %e\n",
-	     iter, t, delta_t, max_change);
+      DEBUG_PRINTF("iter = %d, t = %e, delta_t = %e, max_change = %e\n", iter, t, delta_t, max_change);
     
     /* When we get here, the integration step was accepted. */
     

@@ -259,7 +259,7 @@ void remove_tiny_polygons (void) {
     n_non_tiny_poly += !(poly_has_tiny_area[poly_indx]);
   }
   if (n_non_tiny_poly < n_poly) {
-    fprintf(stderr, "Removing tiny polygons.\n");
+    DEBUG_PRINTF("Removing tiny polygons.\n");
     
     /* If there are tiny polygons, we replace the original polygons by the   */
     /* subset of non-tiny polygons.                                          */
@@ -474,7 +474,7 @@ void read_map (char *map_file_name)
   }
   remove_tiny_polygons();
   make_region();
-  fprintf(stderr, "%i polygon(s), %i region(s)\n", n_poly, n_reg);
+  DEBUG_PRINTF("%i polygon(s), %i region(s)\n", n_poly, n_reg);
   
   return;
 }

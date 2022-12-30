@@ -52,9 +52,7 @@ void rescale_map (BOOLEAN inv)
     new_maxx = 0.5*(map_maxx+map_minx) + 0.5*lx*latt_const;
     new_minx = 0.5*(map_maxx+map_minx) - 0.5*lx*latt_const;
   }
-  fprintf(stderr,
-    "Using a %d x %d lattice with bounding box\n\t(%f %f %f %f).\n",
-    lx, ly, new_minx, new_miny, new_maxx, new_maxy);
+  DEBUG_PRINTF("Using a %d x %d lattice with bounding box\n\t(%f %f %f %f).\n", lx, ly, new_minx, new_miny, new_maxx, new_maxy);
   
   /********************* Rescale all polygon coordinates. ********************/
 
@@ -409,7 +407,7 @@ BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
     /****** Set target area for regions with NA values *******/
     if(region_na[i] == 1){
       if(first_region == 1){
-        fprintf(stderr, "\nSetting area for NA regions:\n");
+        DEBUG_PRINTF("\nSetting area for NA regions:\n");
         first_region = 0;
       }
       target_area[i] = (init_area[i] / tot_init_area) / total_NA_ratio * total_NA_area;
@@ -417,14 +415,14 @@ BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
     }
   }
 
-  fprintf(stderr, "\n");
+  DEBUG_PRINTF("\n");
 
   /****** Increase target area for regions which will be too small in order to speed ******/
   /****** up cartogram generation process. This happens when -n flag is not set      ******/
   if(use_perimeter_threshold == TRUE){
-    fprintf(stderr, "Note: Enlarging extremely small regions using scaled");
-    fprintf(stderr, " perimeter threshold. Areas for these regions will be");
-    fprintf(stderr, " scaled up. To disable this, please add the -n flag.\n\n");
+    DEBUG_PRINTF("Note: Enlarging extremely small regions using scaled");
+    DEBUG_PRINTF(" perimeter threshold. Areas for these regions will be");
+    DEBUG_PRINTF(" scaled up. To disable this, please add the -n flag.\n\n");
     int *region_small = (int*) calloc(n_reg, sizeof(int));
     int region_small_ctr = 0;
     double *region_threshold, *region_threshold_area, tot_region_small_area = 0,
@@ -450,7 +448,7 @@ BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
     double total_threshold_area = (total_threshold * (tmp_tot_target_area - tot_region_small_area)) / (1 - total_threshold);
 
     if(region_small_ctr > 0){
-      fprintf(stderr, "Enlarging small regions:\n");
+      DEBUG_PRINTF("Enlarging small regions:\n");
     }
 
     for(i=0; i<n_reg; i++){
@@ -460,18 +458,18 @@ BOOLEAN fill_with_density1 (char *map_file_name, char *area_file_name,
         target_area[i] = region_threshold_area[i];
         tmp_tot_target_area += target_area[i];
         tmp_tot_target_area -= old_target_area;
-        fprintf(stderr, "%d: %lf\n", region_id[i], target_area[i]);
+        DEBUG_PRINTF("%d: %lf\n", region_id[i], target_area[i]);
       }
     }
     if(region_small_ctr > 0){
-      fprintf(stderr, "\n");
+      DEBUG_PRINTF("\n");
     }else{
-      fprintf(stderr, "No regions below minimum threshold.\n\n");
+      DEBUG_PRINTF("No regions below minimum threshold.\n\n");
     }
     free(region_small);
   }else{
     /* If -n flag is set, regions with zero area will be replaced by MIN_POP_FAC * min_area */
-    fprintf(stderr, "Note: Not using scaled perimeter threshold.\n\n");
+    DEBUG_PRINTF("Note: Not using scaled perimeter threshold.\n\n");
     double min_area = target_area[0];
     for (i=1; i<n_reg; i++){
       if (target_area[i] > 0.0){

@@ -320,7 +320,7 @@ void ffb_integrate (void)
     /* Control output. */
     
     if (iter % 10 == 0)
-      fprintf(stderr, "iter = %d, t = %e, delta_t = %e\n", iter, t, delta_t);
+      DEBUG_PRINTF("iter = %d, t = %e, delta_t = %e\n", iter, t, delta_t);
     
     /* When we get here, the integration step was accepted. */
     

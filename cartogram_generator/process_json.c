@@ -43,7 +43,7 @@ void process_json(char *json_file_name, char *program_name){
           fprintf(stderr,"ERROR: Map file not in proper file format. Map file needs to be a .json file or .geojson file.\n");
           exit(1);
         }
-        fprintf(stderr, "Processing GeoJSON File...\n");
+        DEBUG_PRINTF("Processing GeoJSON File...\n");
         char *strJson = NULL;
         int line_len;
         int MAX_STRING_LENGTH_JSON = 1000000;

@@ -38,6 +38,14 @@
 #define MAX(a,b) (((a)>(b)) ? (a) : (b))
 #define MIN(a,b) (((a)>(b)) ? (b) : (a))
 
+/**************************** Macros for debugging. **************************/
+
+#ifdef DEBUG
+#define DEBUG_PRINTF(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define DEBUG_PRINTF(...) do {} while (0)
+#endif
+
 /*********************************** Types. **********************************/
 
 typedef struct {      /* Useful structure for coordinates in two dimensions. */
