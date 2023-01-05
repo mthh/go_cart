@@ -193,6 +193,17 @@ int doCartogram (char *map_file_name, char *area_file_name)
             DEBUG_PRINTF("Stopping because the max. abs. area error stagnates over the last 3 iterations\n");
             break;
         }
+
+        /** Another new stop condition :
+        * if the mae is higher than the mae obtained in the last iteration, we stop the integration step
+        * and return the cartogram.
+        * We do this because otherwise we found that on some datasets the mae increases
+        * (e.g. from 2 to 3, and so on), making this loop run again and again.
+        */
+        if (mae > last_mae && fabs(mae - last_mae) > 0.2) {
+            DEBUG_PRINTF("Stopping because the max. abs. area error increases\n");
+            break;
+        }
     }
 
     /* Rescale all areas to perfectly match the total area before the          */
@@ -212,10 +223,12 @@ int doCartogram (char *map_file_name, char *area_file_name)
 
     max_area_err(area_err, cart_area, cartcorn, &cart_tot_area);
 
-    /* Print additional output files: Coordinates in .json format, area errors, */
-    /* the graticules from the inverse transform. */
+    /* Rescale the cartogram to the original coordinates space. */
 
     rescale_map_inv();
+
+    /* Print additional output files: Coordinates in .json format, area errors, */
+    /* the graticules from the inverse transform. */
 
     output_to_geojson(use_std, cartcorn, map_file_name);
     output_error();
