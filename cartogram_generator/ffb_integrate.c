@@ -333,8 +333,12 @@ void ffb_integrate (void)
     mid = projtmp;
 
     delta_t *= INC_AFTER_ACC;           /* Try a larger step size next time. */
-    
-  } while (t < 1.0);
+
+    if (delta_t <= 0.00000000000005) {
+        DEBUG_PRINTF("Stopping because 'delta_t' is now very low\n");
+    }
+
+  } while (t < 1.0 && delta_t > 0.000000000000005);
   
   /* Free memory. */
   
